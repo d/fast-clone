@@ -1,0 +1,104 @@
+#!/bin/bash
+
+set -e -u -o pipefail
+shopt -s inherit_errexit
+
+_main() {
+	local bare_repo
+	local action
+
+	action=$1
+	shift
+
+	readonly bare_repo=~/.cache/bare_reference_repo.git
+
+	case "${action}" in
+	warm)
+		warm "$@"
+		;;
+	clone)
+		clone "$@"
+		;;
+	*)
+		echo >&2 "Unknown action $action"
+		return 1
+		;;
+	esac
+}
+
+clone() {
+	local repo_url local_repo
+
+	repo_url=$1
+	local_repo=$2
+
+	local remote_name head_ref
+	remote_name=$(unique_remote_name "${repo_url}")
+
+	fetch "${remote_name}" "${repo_url}"
+
+	git clone --origin fast-clone --no-tags --no-checkout "${bare_repo}" "${local_repo}"
+	git -C "${local_repo}" config --replace-all "remote.fast-clone.fetch" "+refs/remotes/${remote_name}/*:refs/remotes/fast-clone/remotes/*"
+	git -C "${local_repo}" fetch fast-clone
+	git -C "${local_repo}" remote add origin "${repo_url}"
+	git -C "${local_repo}" fetch origin
+	git -C "${local_repo}" remote rm fast-clone
+	git -C "${local_repo}" remote set-head --auto origin
+	head_ref=$(git -C "${local_repo}" symbolic-ref refs/remotes/origin/HEAD)
+	git -C "${local_repo}" checkout ${head_ref#refs/remotes/origin/}
+}
+
+warm() {
+	local local_repo
+	local repo_url
+	local remote_name
+
+	local_repo=$1
+	repo_url=$2
+
+	init_reference_repo
+
+	remote_name=$(unique_remote_name "${repo_url}")
+	fetch "${remote_name}" "${local_repo}"
+}
+
+fetch() {
+	local remote_name
+	local repo
+
+	remote_name=$1
+	repo=$2
+
+	if git -C "${bare_repo}" remote set-url "${remote_name}" "${repo}"; then
+		true
+	else
+		git -C "${bare_repo}" remote add --no-tags "${remote_name}" "${repo}"
+	fi
+	git -C "${bare_repo}" config --replace-all "remote.${remote_name}.fetch" "+refs/remotes/*:refs/remotes/${remote_name}/remotes/*"
+	git -C "${bare_repo}" config --add "remote.${remote_name}.fetch" "+refs/heads/*:refs/remotes/${remote_name}/heads/*"
+	git -C "${bare_repo}" config --add "remote.${remote_name}.fetch" "+refs/tags/*:refs/remotes/${remote_name}/tags/*"
+	git -C "${bare_repo}" fetch "${remote_name}"
+}
+
+unique_remote_name() {
+	local repo_url
+	repo_url=$1
+
+	printf "%s-%s" "$(basename "${repo_url}")" "$(very_unique_csum "${repo_url}")"
+}
+
+init_reference_repo() {
+	if [ -d "${bare_repo}" ] && git -C "${bare_repo}" rev-parse --is-bare-repository; then
+		true
+	else
+		git init --bare "${bare_repo}"
+	fi
+}
+
+very_unique_csum() {
+	local repo_url
+	repo_url=$1
+	printf '%s' "${repo_url}" | md5sum | cut -c 1-8
+}
+
+_main "$@"
