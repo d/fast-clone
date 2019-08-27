@@ -33,9 +33,11 @@ clone() {
 	local_repo=$2
 
 	local remote_name head_ref
+	local old_remote_name
 	remote_name=$(unique_remote_name "${repo_url}")
+	old_remote_name=$(unique_remote_name::old "${repo_url}")
 
-	fetch "${remote_name}" "${repo_url}"
+	fetch "${remote_name}" "${repo_url}" "${old_remote_name}"
 
 	git clone --origin fast-clone --no-tags --no-checkout "${bare_repo}" "${local_repo}"
 	git -C "${local_repo}" config --replace-all "remote.fast-clone.fetch" "+refs/remotes/${remote_name}/*:refs/remotes/fast-clone/remotes/*"
@@ -52,6 +54,7 @@ warm() {
 	local local_repo
 	local repo_url
 	local remote_name
+	local old_remote_name
 
 	local_repo=$1
 	repo_url=$2
@@ -59,15 +62,18 @@ warm() {
 	init_reference_repo
 
 	remote_name=$(unique_remote_name "${repo_url}")
-	fetch "${remote_name}" "${local_repo}"
+	old_remote_name=$(unique_remote_name::old "${repo_url}")
+	fetch "${remote_name}" "${local_repo}" "${old_remote_name}"
 }
 
 fetch() {
 	local remote_name
 	local repo
+	local old_remote_name
 
 	remote_name=$1
 	repo=$2
+	old_remote_name=$3
 
 	if git -C "${bare_repo}" remote set-url "${remote_name}" "${repo}"; then
 		true
@@ -78,6 +84,9 @@ fetch() {
 	git -C "${bare_repo}" config --add "remote.${remote_name}.fetch" "+refs/heads/*:refs/remotes/${remote_name}/heads/*"
 	git -C "${bare_repo}" config --add "remote.${remote_name}.fetch" "+refs/tags/*:refs/remotes/${remote_name}/tags/*"
 	git -C "${bare_repo}" fetch --quiet "${remote_name}"
+	if git -C "${bare_repo}" remote show -n "${old_remote_name}" >/dev/null; then
+		git -C "${bare_repo}" remote rm "${old_remote_name}"
+	fi
 }
 
 unique_remote_name() {
@@ -85,6 +94,15 @@ unique_remote_name() {
 	repo_url=$1
 
 	printf "%s-%s" "$(basename "${repo_url}")" "$(very_unique_csum "${repo_url}")"
+}
+
+unique_remote_name::old() {
+	local repo_url
+	local old_csum
+	repo_url=$1
+
+	old_csum="$(printf '%s' "${repo_url}" | md5sum | cut -c 1-8)"
+	printf "%s-%s" "$(basename "${repo_url}")" "${old_csum}"
 }
 
 init_reference_repo() {
@@ -98,7 +116,7 @@ init_reference_repo() {
 very_unique_csum() {
 	local repo_url
 	repo_url=$1
-	printf '%s' "${repo_url}" | md5sum | cut -c 1-8
+	printf '%s' "${repo_url}" | md5sum | cut -c 1-2
 }
 
 _main "$@"
