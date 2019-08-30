@@ -84,7 +84,7 @@ fetch() {
 	git -C "${bare_repo}" config --add "remote.${remote_name}.fetch" "+refs/heads/*:refs/remotes/${remote_name}/heads/*"
 	git -C "${bare_repo}" config --add "remote.${remote_name}.fetch" "+refs/tags/*:refs/remotes/${remote_name}/tags/*"
 	git -C "${bare_repo}" fetch --quiet "${remote_name}"
-	if git -C "${bare_repo}" remote show -n "${old_remote_name}" >/dev/null; then
+	if git -C "${bare_repo}" remote get-url "${old_remote_name}" &>/dev/null; then
 		git -C "${bare_repo}" remote rm "${old_remote_name}"
 	fi
 }
