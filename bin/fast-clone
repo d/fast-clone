@@ -75,6 +75,8 @@ fetch() {
 	repo=$2
 	old_remote_name=$3
 
+	init_reference_repo
+
 	if git -C "${bare_repo}" remote set-url "${remote_name}" "${repo}"; then
 		true
 	else
