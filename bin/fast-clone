@@ -47,7 +47,7 @@ clone() {
 	git -C "${local_repo}" remote rm fast-clone
 	git -C "${local_repo}" remote set-head --auto origin
 	head_ref=$(git -C "${local_repo}" symbolic-ref refs/remotes/origin/HEAD)
-	git -C "${local_repo}" checkout "${head_ref#refs/remotes/origin/}"
+	git -C "${local_repo}" checkout -B "${head_ref#refs/remotes/origin/}" "${head_ref}"
 }
 
 warm() {
