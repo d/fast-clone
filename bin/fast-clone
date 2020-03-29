@@ -2,6 +2,10 @@
 
 set -e -u -o pipefail
 shopt -s inherit_errexit
+shopt -s expand_aliases
+
+alias cache_git='git -C "${bare_repo}" '
+alias local_git='git -C "${local_repo}" '
 
 _main() {
 	local bare_repo
@@ -40,14 +44,14 @@ clone() {
 	fetch "${remote_name}" "${repo_url}" "${old_remote_name}"
 
 	git clone --origin fast-clone --no-tags --no-checkout "${bare_repo}" "${local_repo}"
-	git -C "${local_repo}" config --replace-all "remote.fast-clone.fetch" "+refs/remotes/${remote_name}/*:refs/remotes/fast-clone/remotes/*"
-	git -C "${local_repo}" fetch --quiet fast-clone
-	git -C "${local_repo}" remote add origin "${repo_url}"
-	git -C "${local_repo}" fetch origin
-	git -C "${local_repo}" remote rm fast-clone
-	git -C "${local_repo}" remote set-head --auto origin
-	head_ref=$(git -C "${local_repo}" symbolic-ref refs/remotes/origin/HEAD)
-	git -C "${local_repo}" checkout -B "${head_ref#refs/remotes/origin/}" "${head_ref}"
+	local_git config --replace-all "remote.fast-clone.fetch" "+refs/remotes/${remote_name}/*:refs/remotes/fast-clone/remotes/*"
+	local_git fetch --quiet fast-clone
+	local_git remote add origin "${repo_url}"
+	local_git fetch origin
+	local_git remote rm fast-clone
+	local_git remote set-head --auto origin
+	head_ref=$(local_git symbolic-ref refs/remotes/origin/HEAD)
+	local_git checkout -B "${head_ref#refs/remotes/origin/}" "${head_ref}"
 }
 
 warm() {
@@ -77,17 +81,17 @@ fetch() {
 
 	init_reference_repo
 
-	if git -C "${bare_repo}" remote set-url "${remote_name}" "${repo}"; then
+	if cache_git remote set-url "${remote_name}" "${repo}"; then
 		true
 	else
-		git -C "${bare_repo}" remote add --no-tags "${remote_name}" "${repo}"
+		cache_git remote add --no-tags "${remote_name}" "${repo}"
 	fi
-	git -C "${bare_repo}" config --replace-all "remote.${remote_name}.fetch" "+refs/remotes/*:refs/remotes/${remote_name}/remotes/*"
-	git -C "${bare_repo}" config --add "remote.${remote_name}.fetch" "+refs/heads/*:refs/remotes/${remote_name}/heads/*"
-	git -C "${bare_repo}" config --add "remote.${remote_name}.fetch" "+refs/tags/*:refs/remotes/${remote_name}/tags/*"
-	git -C "${bare_repo}" fetch --quiet "${remote_name}"
-	if git -C "${bare_repo}" remote get-url "${old_remote_name}" &>/dev/null; then
-		git -C "${bare_repo}" remote rm "${old_remote_name}"
+	cache_git config --replace-all "remote.${remote_name}.fetch" "+refs/remotes/*:refs/remotes/${remote_name}/remotes/*"
+	cache_git config --add "remote.${remote_name}.fetch" "+refs/heads/*:refs/remotes/${remote_name}/heads/*"
+	cache_git config --add "remote.${remote_name}.fetch" "+refs/tags/*:refs/remotes/${remote_name}/tags/*"
+	cache_git fetch --quiet "${remote_name}"
+	if cache_git remote get-url "${old_remote_name}" &>/dev/null; then
+		cache_git remote rm "${old_remote_name}"
 	fi
 }
 
@@ -108,7 +112,7 @@ unique_remote_name::old() {
 }
 
 init_reference_repo() {
-	if [ -d "${bare_repo}" ] && git -C "${bare_repo}" rev-parse --is-bare-repository; then
+	if [ -d "${bare_repo}" ] && cache_git rev-parse --is-bare-repository; then
 		true
 	else
 		git init --bare "${bare_repo}"
