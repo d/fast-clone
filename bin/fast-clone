@@ -43,15 +43,18 @@ clone() {
 
 	fetch "${remote_name}" "${repo_url}" "${old_remote_name}"
 
-	git clone --origin fast-clone --no-tags --no-checkout "${bare_repo}" "${local_repo}"
+	set_head "${remote_name}"
+	cache_git branch --force fast-clone-master "${remote_name}"
+	git clone --origin fast-clone --no-tags --no-checkout --branch fast-clone-master "${bare_repo}" "${local_repo}"
 	local_git config --replace-all "remote.fast-clone.fetch" "+refs/remotes/${remote_name}/*:refs/remotes/fast-clone/remotes/*"
 	local_git fetch --quiet fast-clone
 	local_git remote add origin "${repo_url}"
 	local_git fetch origin
-	local_git remote rm fast-clone
 	local_git remote set-head --auto origin
 	head_ref=$(local_git symbolic-ref refs/remotes/origin/HEAD)
 	local_git checkout -B "${head_ref#refs/remotes/origin/}" "${head_ref}"
+	local_git branch --quiet -D fast-clone-master
+	local_git remote rm fast-clone
 }
 
 warm() {
@@ -68,6 +71,17 @@ warm() {
 	remote_name=$(unique_remote_name "${repo_url}")
 	old_remote_name=$(unique_remote_name::old "${repo_url}")
 	fetch "${remote_name}" "${local_repo}" "${old_remote_name}"
+}
+
+set_head() {
+	local remote_name
+	remote_name=$1
+
+	if cache_git show-ref "refs/remotes/${remote_name}/HEAD"; then
+		true
+	else
+		cache_git remote set-head --auto "${remote_name}"
+	fi
 }
 
 fetch() {
