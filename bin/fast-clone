@@ -101,7 +101,7 @@ fetch() {
 		cache_git remote add --no-tags "${remote_name}" "${repo}"
 	fi
 	cache_git config --replace-all "remote.${remote_name}.fetch" "+refs/remotes/*:refs/remotes/${remote_name}/remotes/*"
-	cache_git config --add "remote.${remote_name}.fetch" "+refs/heads/*:refs/remotes/${remote_name}/heads/*"
+	cache_git config --add "remote.${remote_name}.fetch" "+refs/heads/*:refs/remotes/${remote_name}/*"
 	cache_git config --add "remote.${remote_name}.fetch" "+refs/tags/*:refs/remotes/${remote_name}/tags/*"
 	cache_git fetch --quiet "${remote_name}"
 	if cache_git remote get-url "${old_remote_name}" &>/dev/null; then
