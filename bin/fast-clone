@@ -55,6 +55,7 @@ clone() {
 	local_git checkout -B "${head_ref#refs/remotes/origin/}" "${head_ref}"
 	local_git branch --quiet -D fast-clone-master
 	local_git remote rm fast-clone
+	local_git branch --quiet --remotes -D fast-clone/fast-clone-master
 }
 
 warm() {
